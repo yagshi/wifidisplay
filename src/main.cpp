@@ -5,10 +5,11 @@
 #include <esp_system.h>
 
 // need to be defined in some other file.
-// e.g. const char *SSIDS = ["my-ap1", "my-ap2", nullptr];
-//      const char *PASSWORDS = ["password1", "password2", nullptr];
+// e.g. const char *SSIDS[] = {"my-ap1", "my-ap2", nullptr};
+//      const char *PASSWORDS[] = {"password1", "password2", nullptr};
 extern const char *SSIDS[];
 extern const char *PASSWORDS[];
+const char *MDNSNAME = "wifidisplay";
 
 const int pins[] = {
     4, 16, 17, 5, 18, 19, 21,
@@ -119,11 +120,12 @@ void IRAM_ATTR interruptFunc() {
     }
   }
 
-  for (int c = 0, bh = 65536, bl = 1; c < 16; c++, bh += bh, bl += bl) {
+  for (unsigned int c = 0, bh = 1 << 31, bl = 1 << 15; c < 16;
+       c++, bh = bh >> 1, bl = bl >> 1) {
     digitalWrite(pins[CLOCK], 0);
-    digitalWrite(pins[ROW], row == c ? 1 : 0);
-    digitalWrite(pins[COL_A], theRow & bh ? 1 : 0);
-    digitalWrite(pins[COL_B], theRow & bl ? 1 : 0);
+    digitalWrite(pins[ROW], (15 - row) == c ? 1 : 0);
+    digitalWrite(pins[COL_A], theRow & bl ? 1 : 0);
+    digitalWrite(pins[COL_B], theRow & bh ? 1 : 0);
     digitalWrite(pins[CLOCK], 1);
   }
   digitalWrite(pins[LATCH], 1);
@@ -168,7 +170,7 @@ void setup() {
   pinMode(LED, OUTPUT);
   digitalWrite(LED, 0);
   connectWiFi();
-  MDNS.begin("iotdisplay");
+  MDNS.begin(MDNSNAME);
   server.begin();
   server.on("/", []() {
     String cmd = server.arg("cmd");
