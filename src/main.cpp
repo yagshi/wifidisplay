@@ -12,10 +12,16 @@ extern const char *PASSWORDS[];
 const char *MDNSNAME = "wifidisplay";
 
 const int pins[] = {
-    4, 16, 17, 5, 18, 19, 21,
+//    4, 16, 17, 5, 18, 19, 21,
+    25, 26, 27, 14, 12, 13,
 };
 
-const int LED = 2;
+const int LED = 2;     // on board
+const int LED_R = 17;
+const int LED_G = 16;
+const int LED_B = 4;
+const int BUZZ = 5;
+const int SW = 23;
 // 以下の  const は pins への間接参照
 const int ENABLE = 5;
 const int LATCH = 4;
@@ -270,7 +276,13 @@ void setup() {
   timerAlarmEnable(gTimer);
   timerAlarmEnable(gTimerSlow);
   ledcSetup(0, 10000, 8);  // 第2引数は周波数
+  ledcSetup(1, 880, 8);    // 第2引数は周波数
   ledcAttachPin(LED, 0);
+  ledcAttachPin(LED_R, 0);
+  ledcAttachPin(LED_G, 0);
+  ledcAttachPin(LED_B, 0);
+  ledcAttachPin(BUZZ, 1);
+  ledcWrite(1, 128);
 }
 
 void loop() {
