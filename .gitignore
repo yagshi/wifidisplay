@@ -6,3 +6,4 @@
 src/wificonfig.cpp
 ruby/yagshi
 Gemfile.lock
+*~
