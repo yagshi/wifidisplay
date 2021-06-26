@@ -9,8 +9,9 @@
 //      const char *PASSWORDS[] = {"password1", "password2", nullptr};
 extern const char *SSIDS[];
 extern const char *PASSWORDS[];
+
 extern unsigned char font55[][5];
-const char *MDNSNAME = "wifidisplay";
+const char *MDNSNAME = "iotdisplay";
 
 const int pins[] = {
     //    4, 16, 17, 5, 18, 19, 21,
@@ -33,6 +34,8 @@ const int ROW = 0;
 
 const int WIDTH = 384;
 const int HEIGHT = 64;
+
+int gWidth = WIDTH;  // スクロール範囲
 
 int gScrollX = 1;
 int gScrollY = 0;
@@ -121,7 +124,7 @@ void IRAM_ATTR interruptFuncSlow() {
   }
   ledcWrite(0, pwm);
   timerAlarmDisable(gTimer);
-  gLeft = (gLeft + gScrollX + WIDTH) % WIDTH;
+  gLeft = (gLeft + gScrollX + gWidth) % gWidth;
   gTop = (gTop + gScrollY + HEIGHT) % HEIGHT;
   timerAlarmEnable(gTimer);
 }
@@ -131,13 +134,15 @@ void IRAM_ATTR interruptFunc() {
   static int plane = 0;  // 0, 1, 2
   uint32_t theRow = 0;
 
-  int p = gLeft / 32;
-  uint32_t bs = 0x80000000 >> (gLeft + 32 % 32);  // 転送元ビット
-  uint32_t bd = 0x80000000;                       // 転送先(theRow)ビット
+  int p0 = gLeft / 32;
+  uint32_t bs0 = 0x80000000 >> (gLeft + 32 % 32);  // 転送元ビット
+  uint32_t bd = 0x80000000;                        // 転送先(theRow)ビット
 
+  int p = p0;
+  uint32_t bs = bs0;
   timerAlarmDisable(gTimerSlow);
 
-  for (int i = 0; i < 32; i++) {
+  for (int i = 0, x = gWidth; i < 32; i++) {
     switch (plane & 15) {
       case 0:
       case 3:
@@ -164,6 +169,11 @@ void IRAM_ATTR interruptFunc() {
     if (bs == 0) {
       bs = 0x80000000;
       p = (p + 1) % (WIDTH / 32);
+    }
+    if (++x >= gWidth) {
+      p = p0;
+      bs = bs0;
+      x = gLeft;
     }
   }
 
@@ -251,6 +261,7 @@ void setup() {
   server.begin();
   server.on("/", []() {
     String cmd = server.arg("cmd");
+    int width = server.arg("width").toInt();
     if (cmd == "home") {
       gTop = 0;
       gLeft = 0;
@@ -270,6 +281,9 @@ void setup() {
     if (cmd == "stop") {
       gScrollX = 0;
       gScrollY = 0;
+    }
+    if (width > 0) {
+      gWidth = width;
     }
     server.send(200, "text/plain", "ok\n");
   });
