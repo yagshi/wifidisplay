@@ -23,7 +23,7 @@ const int LED_R = 17;
 const int LED_G = 16;
 const int LED_B = 4;
 const int BUZZ = 5;
-const int SW = 23;
+const int BUTTON = 23;
 // 以下の  const は pins への間接参照
 const int ENABLE = 5;
 const int LATCH = 4;
@@ -42,6 +42,8 @@ int gScrollY = 0;
 // viewport top-left
 int gTop = 0;
 int gLeft = 0;
+
+int gLedState = 0;
 WebServer server(80);
 
 uint32_t vram[][HEIGHT][WIDTH / 32] = {
@@ -114,6 +116,22 @@ hw_timer_t *gTimer;      // = timerBegin(0, 80, true);  //
                          // 80 にすると 1us
 hw_timer_t *gTimerSlow;  // = timerBegin(1, 80, true);
 
+void IRAM_ATTR pressed() {
+  gLedState = gLedState == 0 ? 1 : 0;
+  if (gLedState) {
+    ledcAttachPin(LED_R, 0);
+    ledcAttachPin(LED_G, 0);
+    ledcAttachPin(LED_B, 0);
+  } else {
+    ledcDetachPin(LED_R);
+    ledcDetachPin(LED_G);
+    ledcDetachPin(LED_B);
+    digitalWrite(LED_R, 0);
+    digitalWrite(LED_G, 0);
+    digitalWrite(LED_B, 0);
+  }
+}
+
 void IRAM_ATTR interruptFuncSlow() {
   static int pwm = 10;
   static int v = 8;  // デューティの変化分
@@ -138,11 +156,10 @@ void IRAM_ATTR interruptFunc() {
   uint32_t bs0 = 0x80000000 >> (gLeft + 32 % 32);  // 転送元ビット
   uint32_t bd = 0x80000000;                        // 転送先(theRow)ビット
 
-  int p = p0;
   uint32_t bs = bs0;
   timerAlarmDisable(gTimerSlow);
 
-  for (int i = 0, x = gWidth; i < 32; i++) {
+  for (int i = 0, p = p0, x = gLeft; i < 32; i++) {
     switch (plane & 15) {
       case 0:
       case 3:
@@ -171,9 +188,9 @@ void IRAM_ATTR interruptFunc() {
       p = (p + 1) % (WIDTH / 32);
     }
     if (++x >= gWidth) {
-      p = p0;
-      bs = bs0;
-      x = gLeft;
+      p = 0;
+      bs = 0x80000000;
+      x = 0;
     }
   }
 
@@ -192,7 +209,6 @@ void IRAM_ATTR interruptFunc() {
     row = 0;
     plane++;
   }
-
   timerAlarmEnable(gTimerSlow);
 }
 
@@ -255,9 +271,12 @@ void setup() {
   }
   pinMode(LED, OUTPUT);
   digitalWrite(LED, 0);
+  pinMode(BUTTON, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BUTTON), pressed, FALLING);
   connectWiFi();
 
   MDNS.begin(MDNSNAME);
+  MDNS.addService("http", "tcp", 80);
   server.begin();
   server.on("/", []() {
     String cmd = server.arg("cmd");
@@ -324,9 +343,6 @@ void setup() {
   ledcSetup(0, 10000, 8);  // 第2引数は周波数
   ledcSetup(1, 880, 8);    // 第2引数は周波数
   ledcAttachPin(LED, 0);
-  ledcAttachPin(LED_R, 0);
-  ledcAttachPin(LED_G, 0);
-  ledcAttachPin(LED_B, 0);
   // ledcAttachPin(BUZZ, 1);
   ledcWrite(1, 128);
 }
