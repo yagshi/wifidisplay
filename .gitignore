@@ -10,3 +10,5 @@ Gemfile.lock
 \#*
 .\#*
 iotdisplay-key.json
+.bundle
+*.swp
