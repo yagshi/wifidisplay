@@ -9,6 +9,8 @@
 //      const char *PASSWORDS[] = {"password1", "password2", nullptr};
 extern const char *SSIDS[];
 extern const char *PASSWORDS[];
+
+extern unsigned char font55[][5];
 const char *MDNSNAME = "iotdisplay";
 
 const int pins[] = {
@@ -194,7 +196,36 @@ void IRAM_ATTR interruptFunc() {
   timerAlarmEnable(gTimerSlow);
 }
 
-int h2d1(char c) {
+void drawText(int x0, int y0, const char *s) {
+  for (; *s; s++, x0 += 6) {
+    if (x0 >= WIDTH) {
+      x0 = 0;
+    }
+    for (int r = 0, y = y0; r < 5; r++, y = (y + 1) % HEIGHT) {
+      int xp = x0 / 32;
+      uint32_t bd = 0x80000000 >> (x0 % 32);
+      for (int bs = 0b10000; bs; bs >>= 1) {
+        if (font55[(int)*s][r] & bs) {
+          vram[0][y][xp] |= bd;
+          vram[1][y][xp] |= bd;
+        } else {
+          vram[0][y][xp] &= ~bd;
+          vram[1][y][xp] &= ~bd;
+        }
+        bd >>= 1;
+        if (bd == 0) {
+          bd = 0x80000000;
+          xp++;
+          if (xp >= WIDTH / 32) {
+            xp = 0;
+          }
+        }
+      }
+    }
+  }
+}
+
+int h2d1(char c) {  // hex to decimal
   if (c >= '0' && c <= '9') return c - '0';
   return tolower(c) - 'a' + 10;
 }
@@ -225,6 +256,7 @@ void setup() {
   pinMode(LED, OUTPUT);
   digitalWrite(LED, 0);
   connectWiFi();
+
   MDNS.begin(MDNSNAME);
   server.begin();
   server.on("/", []() {
@@ -281,6 +313,7 @@ void setup() {
   gTimerSlow = timerBegin(1, 80, true);
 
   Serial.println("connected.");
+  drawText(0, 0, (const char *)WiFi.localIP().toString().c_str());
 
   timerAttachInterrupt(gTimer, interruptFunc, true);
   timerAlarmWrite(gTimer, 50, true);
@@ -294,7 +327,7 @@ void setup() {
   ledcAttachPin(LED_R, 0);
   ledcAttachPin(LED_G, 0);
   ledcAttachPin(LED_B, 0);
-  ledcAttachPin(BUZZ, 1);
+  // ledcAttachPin(BUZZ, 1);
   ledcWrite(1, 128);
 }
 
