@@ -1,3 +1,4 @@
+#!/usr/bin/ruby
 # coding: utf-8
 # Wi-Fi display に puts する
 # usage: ledputs.rb string
