@@ -120,6 +120,35 @@ hw_timer_t *gTimer;      // = timerBegin(0, 80, true);  //
                          // 80 にすると 1us
 hw_timer_t *gTimerSlow;  // = timerBegin(1, 80, true);
 
+void drawText(int x0, int y0, const char *s) {
+  for (; *s; s++, x0 += 6) {
+    if (x0 >= WIDTH) {
+      x0 = 0;
+    }
+    for (int r = 0, y = y0; r < 5; r++, y = (y + 1) % HEIGHT) {
+      int xp = x0 / 32;
+      uint32_t bd = 0x80000000 >> (x0 % 32);
+      for (int bs = 0b10000; bs; bs >>= 1) {
+        if (font55[(int)*s][r] & bs) {
+          vram[0][y][xp] |= bd;
+          vram[1][y][xp] |= bd;
+        } else {
+          vram[0][y][xp] &= ~bd;
+          vram[1][y][xp] &= ~bd;
+        }
+        bd >>= 1;
+        if (bd == 0) {
+          bd = 0x80000000;
+          xp++;
+          if (xp >= WIDTH / 32) {
+            xp = 0;
+          }
+        }
+      }
+    }
+  }
+}
+
 void IRAM_ATTR pressed() {
   gLedState = gLedState == eOff ? eBreathing : eOff;
   if (gLedState = eOff) {
@@ -164,7 +193,7 @@ void IRAM_ATTR interruptFuncSlow() {
       ledcAttachPin(LED_G, 0);
       ledcAttachPin(LED_B, 0);
       break;
-    }
+  }
 
   // さらにゆっくりの処理は以下
   static int slowCnt = 50;  // 500 Hz のとき 0.1 s
@@ -243,35 +272,6 @@ void IRAM_ATTR interruptFunc() {
   timerAlarmEnable(gTimerSlow);
 }
 
-void drawText(int x0, int y0, const char *s) {
-  for (; *s; s++, x0 += 6) {
-    if (x0 >= WIDTH) {
-      x0 = 0;
-    }
-    for (int r = 0, y = y0; r < 5; r++, y = (y + 1) % HEIGHT) {
-      int xp = x0 / 32;
-      uint32_t bd = 0x80000000 >> (x0 % 32);
-      for (int bs = 0b10000; bs; bs >>= 1) {
-        if (font55[(int)*s][r] & bs) {
-          vram[0][y][xp] |= bd;
-          vram[1][y][xp] |= bd;
-        } else {
-          vram[0][y][xp] &= ~bd;
-          vram[1][y][xp] &= ~bd;
-        }
-        bd >>= 1;
-        if (bd == 0) {
-          bd = 0x80000000;
-          xp++;
-          if (xp >= WIDTH / 32) {
-            xp = 0;
-          }
-        }
-      }
-    }
-  }
-}
-
 int h2d1(char c) {  // hex to decimal
   if (c >= '0' && c <= '9') return c - '0';
   return tolower(c) - 'a' + 10;
@@ -302,7 +302,7 @@ void setup() {
   }
   digitalWrite(ENABLE, 1);  // disable
   pinMode(LED, OUTPUT);
-  digitalWrite(LED, 0);
+  digitalWrite(LED, 1);
   pinMode(BUTTON, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(BUTTON), pressed, FALLING);
   connectWiFi();
