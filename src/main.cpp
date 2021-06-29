@@ -300,6 +300,7 @@ void setup() {
     pinMode(i, OUTPUT);
     digitalWrite(i, 0);
   }
+  pinMode(BUZZ, INPUT);
   digitalWrite(ENABLE, 1);  // disable
   pinMode(LED, OUTPUT);
   digitalWrite(LED, 1);
