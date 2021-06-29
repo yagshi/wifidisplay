@@ -3,6 +3,7 @@
 #include <WebServer.h>
 #include <WiFi.h>
 #include <esp_system.h>
+#include <time.h>
 
 // need to be defined in some other file.
 // e.g. const char *SSIDS[] = {"my-ap1", "my-ap2", nullptr};
@@ -43,7 +44,10 @@ int gScrollY = 0;
 int gTop = 0;
 int gLeft = 0;
 
-int gLedState = 0;
+enum LEDSTATE { eOff, eNormal, eBreathing, eWarning, eNotification };
+enum LEDSTATE gLedState = eBreathing;
+// int gLedState = 0;
+int gTimeRecv = NULL;
 WebServer server(80);
 
 uint32_t vram[][HEIGHT][WIDTH / 32] = {
@@ -117,8 +121,8 @@ hw_timer_t *gTimer;      // = timerBegin(0, 80, true);  //
 hw_timer_t *gTimerSlow;  // = timerBegin(1, 80, true);
 
 void IRAM_ATTR pressed() {
-  gLedState = gLedState == 0 ? 1 : 0;
-  if (gLedState) {
+  gLedState = gLedState == eOff ? eBreathing : eOff;
+  if (gLedState = eOff) {
     ledcAttachPin(LED_R, 0);
     ledcAttachPin(LED_G, 0);
     ledcAttachPin(LED_B, 0);
@@ -145,6 +149,33 @@ void IRAM_ATTR interruptFuncSlow() {
   gLeft = (gLeft + gScrollX + gWidth) % gWidth;
   gTop = (gTop + gScrollY + HEIGHT) % HEIGHT;
   timerAlarmEnable(gTimer);
+
+  switch (gLedState) {
+    case eOff:
+      ledcDetachPin(LED_R);
+      ledcDetachPin(LED_G);
+      ledcDetachPin(LED_B);
+      digitalWrite(LED_R, 0);
+      digitalWrite(LED_G, 0);
+      digitalWrite(LED_B, 0);
+      break;
+    case eBreathing:
+      ledcAttachPin(LED_R, 0);
+      ledcAttachPin(LED_G, 0);
+      ledcAttachPin(LED_B, 0);
+      break;
+    }
+
+  // さらにゆっくりの処理は以下
+  static int slowCnt = 50;  // 500 Hz のとき 0.1 s
+  if (--slowCnt <= 0) {
+    if (gTimer) {
+      if (time(NULL) - gTimeRecv > 600) {
+        drawText(0, 0, "CONNECTION LOST?");
+        gLedState = eWarning;
+      }
+    }
+  }
 }
 
 void IRAM_ATTR interruptFunc() {
@@ -269,14 +300,20 @@ void setup() {
     pinMode(i, OUTPUT);
     digitalWrite(i, 0);
   }
+  digitalWrite(ENABLE, 1);  // disable
   pinMode(LED, OUTPUT);
   digitalWrite(LED, 0);
   pinMode(BUTTON, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(BUTTON), pressed, FALLING);
   connectWiFi();
 
+  configTime(3600 * 9, 0, "jp.pool.ntp.org", "ntp.nict.jp");
+
   MDNS.begin(MDNSNAME);
   MDNS.addService("http", "tcp", 80);
+
+  digitalWrite(ENABLE, 0);  // enable
+
   server.begin();
   server.on("/", []() {
     String cmd = server.arg("cmd");
@@ -309,6 +346,7 @@ void setup() {
   // 行のみ指定可能
   // /set?row=**&data=55aa1701....
   server.on("/set", []() {
+    gTimeRecv = time(NULL);
     int row = server.arg("row").toInt();
     int plane = server.arg("plane").toInt() & 3;
     int offset = 0;  // VRAM 1要素(32bit)単位でいくつめか
@@ -341,7 +379,7 @@ void setup() {
   timerAlarmEnable(gTimer);
   timerAlarmEnable(gTimerSlow);
   ledcSetup(0, 10000, 8);  // 第2引数は周波数
-  ledcSetup(1, 880, 8);    // 第2引数は周波数
+  ledcSetup(1, 500, 8);    // 第2引数は周波数
   ledcAttachPin(LED, 0);
   // ledcAttachPin(BUZZ, 1);
   ledcWrite(1, 128);
