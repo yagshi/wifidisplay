@@ -17,6 +17,7 @@ const char *MDNSNAME = "iotdisplay";
 const int pins[] = {
     //    4, 16, 17, 5, 18, 19, 21,
     25, 26, 27, 14, 12, 13,
+    // 35, 32, 33, 25, 26, 27
 };
 
 const int LED = 2;  // on board
@@ -47,7 +48,7 @@ int gLeft = 0;
 enum LEDSTATE { eOff, eNormal, eBreathing, eWarning, eNotification };
 enum LEDSTATE gLedState = eBreathing;
 // int gLedState = 0;
-int gTimeRecv = NULL;
+time_t gTimeRecv = (time_t)0;
 WebServer server(80);
 
 uint32_t vram[][HEIGHT][WIDTH / 32] = {
@@ -120,6 +121,16 @@ hw_timer_t *gTimer;      // = timerBegin(0, 80, true);  //
                          // 80 にすると 1us
 hw_timer_t *gTimerSlow;  // = timerBegin(1, 80, true);
 
+void cls() {
+  for (int plane = 0; plane < 2; plane++) {
+    for (int y = 0; y < HEIGHT; y++) {
+      for (int x = 0; x < WIDTH / 32; x++) {
+        vram[plane][y][x] = 0;
+      }
+    }
+  }
+}
+
 void drawText(int x0, int y0, const char *s) {
   for (; *s; s++, x0 += 6) {
     if (x0 >= WIDTH) {
@@ -151,7 +162,7 @@ void drawText(int x0, int y0, const char *s) {
 
 void IRAM_ATTR pressed() {
   gLedState = gLedState == eOff ? eBreathing : eOff;
-  if (gLedState = eOff) {
+  if (gLedState == eOff) {
     ledcAttachPin(LED_R, 0);
     ledcAttachPin(LED_G, 0);
     ledcAttachPin(LED_B, 0);
@@ -193,16 +204,25 @@ void IRAM_ATTR interruptFuncSlow() {
       ledcAttachPin(LED_G, 0);
       ledcAttachPin(LED_B, 0);
       break;
-  }
+    }
 
   // さらにゆっくりの処理は以下
   static int slowCnt = 50;  // 500 Hz のとき 0.1 s
   if (--slowCnt <= 0) {
-    if (gTimer) {
-      if (time(NULL) - gTimeRecv > 600) {
-        drawText(0, 0, "CONNECTION LOST?");
-        gLedState = eWarning;
-      }
+    slowCnt = 50;
+    if (time(NULL) - gTimeRecv > 600) {
+      gTimeRecv = time(NULL);
+      timerAlarmDisable(gTimer);
+      cls();
+      timerAlarmEnable(gTimer);
+      timerAlarmDisable(gTimer);
+      drawText(0, 2, "NO NEW INFORMATION");
+      timerAlarmEnable(gTimer);
+      timerAlarmDisable(gTimer);
+      drawText(0, 10, "(CONNECTION LOST?)");
+      gWidth = 6 * 18 + 10;
+      gLedState = eWarning;
+      timerAlarmEnable(gTimer);
     }
   }
 }
@@ -277,13 +297,18 @@ int h2d1(char c) {  // hex to decimal
   return tolower(c) - 'a' + 10;
 }
 
-void connectWiFi() {
+void setupWiFi() {
   int i = 0;
   while (true) {
     WiFi.begin(SSIDS[i], PASSWORDS[i]);
     Serial.println(SSIDS[i]);
     for (int j = 0; j < 32; j++) {
-      if (WiFi.status() == WL_CONNECTED) return;
+      if (WiFi.status() == WL_CONNECTED) {
+        configTime(3600 * 9, 0, "jp.pool.ntp.org", "ntp.nict.jp");
+        MDNS.begin(MDNSNAME);
+        MDNS.addService("http", "tcp", 80);
+        return;
+      }
       digitalWrite(LED, !digitalRead(LED));
       delay(200);
     }
@@ -294,30 +319,12 @@ void connectWiFi() {
   }
 }
 
-void setup() {
-  Serial.begin(115200);
-  for (int i : pins) {
-    pinMode(i, OUTPUT);
-    digitalWrite(i, 0);
-  }
-  digitalWrite(ENABLE, 1);  // disable
-  pinMode(LED, OUTPUT);
-  digitalWrite(LED, 1);
-  pinMode(BUTTON, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(BUTTON), pressed, FALLING);
-  connectWiFi();
-
-  configTime(3600 * 9, 0, "jp.pool.ntp.org", "ntp.nict.jp");
-
-  MDNS.begin(MDNSNAME);
-  MDNS.addService("http", "tcp", 80);
-
-  digitalWrite(ENABLE, 0);  // enable
-
+void setupServer() {
   server.begin();
   server.on("/", []() {
     String cmd = server.arg("cmd");
     int width = server.arg("width").toInt();
+    timerAlarmDisable(gTimer);
     if (cmd == "home") {
       gTop = 0;
       gLeft = 0;
@@ -341,6 +348,7 @@ void setup() {
     if (width > 0) {
       gWidth = width;
     }
+    timerAlarmEnable(gTimer);
     server.send(200, "text/plain", "ok\n");
   });
   // 行のみ指定可能
@@ -365,12 +373,25 @@ void setup() {
     }
     server.send(200, "text/plain", "ok\n");
   });
+}
 
-  gTimer = timerBegin(0, 80, true);  // 80 にすると 1us
+void setup() {
+  Serial.begin(115200);
+  for (int i : pins) {
+    pinMode(i, OUTPUT);
+    digitalWrite(i, 0);
+  }
+  digitalWrite(ENABLE, 1);  // disable
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, 1);
+  pinMode(BUTTON, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BUTTON), pressed, FALLING);
+
+  digitalWrite(ENABLE, 0);  // enable
+
   gTimerSlow = timerBegin(1, 80, true);
 
-  Serial.println("connected.");
-  drawText(0, 0, (const char *)WiFi.localIP().toString().c_str());
+  gTimer = timerBegin(0, 80, true);  // 80 にすると 1us
 
   timerAttachInterrupt(gTimer, interruptFunc, true);
   timerAlarmWrite(gTimer, 50, true);
@@ -379,14 +400,33 @@ void setup() {
   timerAlarmEnable(gTimer);
   timerAlarmEnable(gTimerSlow);
   ledcSetup(0, 10000, 8);  // 第2引数は周波数
-  ledcSetup(1, 500, 8);    // 第2引数は周波数
-  ledcAttachPin(LED, 0);
+  // ledcSetup(1, 500, 8);    // 第2引数は周波数
   // ledcAttachPin(BUZZ, 1);
   ledcWrite(1, 128);
+  setupWiFi();
+  setupServer();
+  ledcAttachPin(LED, 0);
+  drawText(0, 0, (const char *)WiFi.localIP().toString().c_str());
 }
 
 void loop() {
-  server.handleClient();
-  Serial.println(WiFi.localIP());
-  delay(10);
+  switch (WiFi.status()) {
+    case WL_CONNECTED:
+      server.handleClient();
+      break;
+    case WL_CONNECTION_LOST:
+      Serial.println("connection lost");
+      break;
+    case WL_DISCONNECTED:
+      Serial.println("disconnected");
+      break;
+    default:
+      Serial.println(WiFi.status());
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    server.handleClient();
+  }
+
+  Serial.println(time(NULL));
+  delay(15);
 }
