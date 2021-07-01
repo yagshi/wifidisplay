@@ -204,7 +204,7 @@ void IRAM_ATTR interruptFuncSlow() {
       ledcAttachPin(LED_G, 0);
       ledcAttachPin(LED_B, 0);
       break;
-    }
+  }
 
   // さらにゆっくりの処理は以下
   static int slowCnt = 50;  // 500 Hz のとき 0.1 s
