@@ -205,26 +205,6 @@ void IRAM_ATTR interruptFuncSlow() {
       ledcAttachPin(LED_B, 0);
       break;
   }
-
-  // さらにゆっくりの処理は以下
-  static int slowCnt = 50;  // 500 Hz のとき 0.1 s
-  if (--slowCnt <= 0) {
-    slowCnt = 50;
-    if (time(NULL) - gTimeRecv > 600) {
-      gTimeRecv = time(NULL);
-      timerAlarmDisable(gTimer);
-      cls();
-      timerAlarmEnable(gTimer);
-      timerAlarmDisable(gTimer);
-      drawText(0, 2, "NO NEW INFORMATION");
-      timerAlarmEnable(gTimer);
-      timerAlarmDisable(gTimer);
-      drawText(0, 10, "(CONNECTION LOST?)");
-      gWidth = 6 * 18 + 10;
-      gLedState = eWarning;
-      timerAlarmEnable(gTimer);
-    }
-  }
 }
 
 void IRAM_ATTR interruptFunc() {
@@ -425,6 +405,16 @@ void loop() {
   }
   if (WiFi.status() == WL_CONNECTED) {
     server.handleClient();
+  }
+
+  if (time(NULL) - gTimeRecv > 600) {
+    gTimeRecv = time(NULL);
+    cls();
+    drawText(0, 2, "NO NEW INFORMATION");
+    drawText(0, 10, "(CONNECTION LOST?)");
+    Serial.println("connectoin lost?");
+    gWidth = 6 * 18 + 10;
+    gLedState = eWarning;
   }
 
   Serial.println(time(NULL));
