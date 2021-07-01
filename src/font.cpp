@@ -1,3 +1,4 @@
+#include <esp_system.h>
 unsigned char font55[][5] = {
     //// 00
     {0b00000, 0b00000, 0b00000, 0b00000, 0b00000},
