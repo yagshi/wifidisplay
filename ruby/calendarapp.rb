@@ -104,5 +104,6 @@ while true
       p e
     end
   }
-  sleep(30)
+  GC.start
+  sleep(60)
 end
