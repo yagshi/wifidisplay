@@ -11,8 +11,7 @@ include PyCall::Import
 
 WIDTH = 384
 KEYFILE = 'iotdisplay-key.json'.freeze
-#CALENDAR_ID = 'kqjf08tfsnanv8p5rl2pa4p9p0@group.calendar.google.com'.freeze
-CALENDAR_ID = 'hjkoba@gmail.com'.freeze
+CALENDAR_ID = 'kqjf08tfsnanv8p5rl2pa4p9p0@group.calendar.google.com'.freeze
 
 pyfrom :PIL, import: [:Image, :ImageFont, :ImageDraw]
 
@@ -50,7 +49,7 @@ def get_calendar(service)
           str += "本日: "
         end
       else
-        str += "%02d日: " % [dt.day]
+        str += "%2d日: " % [dt.day]
       end
     end
   rescue => e
