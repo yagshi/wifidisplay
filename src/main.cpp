@@ -16,8 +16,8 @@ const char *MDNSNAME = "iotdisplay";
 
 const int pins[] = {
     //    4, 16, 17, 5, 18, 19, 21,
-    25, 26, 27, 14, 12, 13,
-    // 35, 32, 33, 25, 26, 27
+    // 25, 26, 27, 14, 12, 13,
+    22, 32, 33, 25, 26, 27,
 };
 
 const int LED = 2;  // on board
@@ -361,13 +361,13 @@ void setup() {
     pinMode(i, OUTPUT);
     digitalWrite(i, 0);
   }
-  digitalWrite(ENABLE, 1);  // disable
+  digitalWrite(pins[ENABLE], 1);  // disable
   pinMode(LED, OUTPUT);
   digitalWrite(LED, 1);
   pinMode(BUTTON, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(BUTTON), pressed, FALLING);
 
-  digitalWrite(ENABLE, 0);  // enable
+  digitalWrite(pins[ENABLE], 0);  // enable
 
   gTimerSlow = timerBegin(1, 80, true);
 
@@ -402,6 +402,7 @@ void loop() {
       break;
     default:
       Serial.println(WiFi.status());
+      break;
   }
   if (WiFi.status() == WL_CONNECTED) {
     server.handleClient();
