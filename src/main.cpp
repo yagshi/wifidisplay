@@ -363,7 +363,9 @@ void setup() {
   }
   digitalWrite(pins[ENABLE], 1);  // disable
   pinMode(LED, OUTPUT);
-  digitalWrite(LED, 1);
+  digitalWrite(LED, 0);
+  setupWiFi();
+
   pinMode(BUTTON, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(BUTTON), pressed, FALLING);
 
@@ -383,7 +385,6 @@ void setup() {
   // ledcSetup(1, 500, 8);    // 第2引数は周波数
   // ledcAttachPin(BUZZ, 1);
   ledcWrite(1, 128);
-  setupWiFi();
   setupServer();
   ledcAttachPin(LED, 0);
   drawText(0, 0, (const char *)WiFi.localIP().toString().c_str());
