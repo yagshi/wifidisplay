@@ -161,6 +161,15 @@ void drawText(int x0, int y0, const char *s) {
 }
 
 void IRAM_ATTR pressed() {
+  char buf[30];
+  struct tm tm;
+  getLocalTime(&tm);
+  sprintf(buf, "%04d/%02d/%02d", 1900 + tm.tm_year, tm.tm_mon + 1, tm.tm_mday);
+  drawText(0, 16, buf);
+  sprintf(buf, "%02d:%02d", tm.tm_hour, tm.tm_min);
+  drawText(0, 24, buf);
+  gTop = 16;
+
   gLedState = gLedState == eOff ? eBreathing : eOff;
   if (gLedState == eOff) {
     ledcAttachPin(LED_R, 0);
@@ -203,6 +212,13 @@ void IRAM_ATTR interruptFuncSlow() {
       ledcAttachPin(LED_R, 0);
       ledcAttachPin(LED_G, 0);
       ledcAttachPin(LED_B, 0);
+      break;
+    case eWarning:
+      ledcAttachPin(LED_R, 0);
+      ledcDetachPin(LED_G);
+      ledcDetachPin(LED_B);
+      digitalWrite(LED_G, 0);
+      digitalWrite(LED_B, 0);
       break;
   }
 }
@@ -285,6 +301,7 @@ void setupWiFi() {
     for (int j = 0; j < 32; j++) {
       if (WiFi.status() == WL_CONNECTED) {
         configTime(3600 * 9, 0, "jp.pool.ntp.org", "ntp.nict.jp");
+        configTzTime("JST-9", "jp.pool.ntp.org", "ntp.nict.jp");
         MDNS.begin(MDNSNAME);
         MDNS.addService("http", "tcp", 80);
         return;
@@ -334,6 +351,8 @@ void setupServer() {
   // 行のみ指定可能
   // /set?row=**&data=55aa1701....
   server.on("/set", []() {
+    gTop = 0;
+    gLedState = eBreathing;
     gTimeRecv = time(NULL);
     int row = server.arg("row").toInt();
     int plane = server.arg("plane").toInt() & 3;
