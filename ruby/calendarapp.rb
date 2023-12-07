@@ -64,8 +64,12 @@ while true
   str_tm = str_tm + " "
   str_ev = str_ev + " "
   draw.rectangle([0, 0, WIDTH, 16], fill: PyCall::Tuple.([0, 0, 0, 0]))
-  text_width_tm, _ = font_s.getsize(str_tm)
-  text_width_ev, _ = font_m.getsize(str_ev)
+  left, _top, right, _bottom = font_s.getbbox(str_tm)
+  text_width_tm = right - left
+  left, _top, right, _bottom = font_m.getbbox(str_ev)
+  text_width_ev = right - left
+  # text_width_tm, _ = font_s.getsize(str_tm)
+  #text_width_ev, _ = font_m.getsize(str_ev)
   draw.text([0, 0], str_tm, font: font_s)
   draw.text([text_width_tm, -4], str_ev, font: font_m)
   
@@ -98,6 +102,9 @@ while true
       Net::HTTP.get_response(URI.parse("http://iotdisplay.local/set?row=#{y}&plane=0&data=#{str1}"))
       Net::HTTP.get_response(URI.parse("http://iotdisplay.local/set?row=#{y}&plane=1&data=#{str2}"))
       Net::HTTP.get_response(URI.parse("http://iotdisplay.local/?width=#{text_width_tm + text_width_ev}"))
+      Net::HTTP.get_response(URI.parse("http://iotdisplay2.local/set?row=#{y}&plane=0&data=#{str1}"))
+      Net::HTTP.get_response(URI.parse("http://iotdisplay2.local/set?row=#{y}&plane=1&data=#{str2}"))
+      Net::HTTP.get_response(URI.parse("http://iotdisplay2.local/?width=#{text_width_tm + text_width_ev}"))
       puts (text_width_tm + text_width_ev)
     rescue => e
       p e
