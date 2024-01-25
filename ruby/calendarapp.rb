@@ -55,14 +55,14 @@ def get_calendar(service)
   rescue => e
     p e
   end
-  [str, ev.summary]
+  [str, ev&.summary || 'error']
 end
 
 while true
   str_tm, str_ev = get_calendar(service)
-  puts str_tm + " " + str_ev
-  str_tm = str_tm + " "
-  str_ev = str_ev + " "
+  puts "#{str_tm} #{str_ev}"
+  str_tm = (str_tm || '') + ' ' 
+  str_ev = (str_ev || '') + ' '
   draw.rectangle([0, 0, WIDTH, 16], fill: PyCall::Tuple.([0, 0, 0, 0]))
   left, _top, right, _bottom = font_s.getbbox(str_tm)
   text_width_tm = right - left
