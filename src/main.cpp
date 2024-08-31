@@ -12,7 +12,8 @@ extern const char *SSIDS[];
 extern const char *PASSWORDS[];
 
 extern unsigned char font55[][5];
-const char *MDNSNAME = "iotdisplay";  // iotdisplay2は室内デスクトップ版
+const char *MDNSNAME = "iotdisplay";  // iotdisplayはドア取り付け版
+// const char *MDNSNAME = "iotdisplay2";  // iotdisplay2は室内デスクトップ版
 
 const int pins[] = {
     // 4, 16, 17, 5, 18, 19, 21,//
@@ -44,6 +45,7 @@ int gScrollY = 0;
 // viewport top-left
 int gTop = 0;
 int gLeft = 0;
+bool gRestartRequest = false;
 
 enum LEDSTATE { eOff, eNormal, eBreathing, eWarning, eNotification };
 enum LEDSTATE gLedState = eBreathing;
@@ -121,6 +123,8 @@ hw_timer_t *gTimer;      // = timerBegin(0, 80, true);  //
                          // 80 にすると 1us
 hw_timer_t *gTimerSlow;  // = timerBegin(1, 80, true);
 
+void setupWiFi(void);
+
 void cls() {
   for (int plane = 0; plane < 2; plane++) {
     for (int y = 0; y < HEIGHT; y++) {
@@ -162,26 +166,35 @@ void drawText(int x0, int y0, const char *s) {
 
 void IRAM_ATTR pressed() {
   char buf[30];
+  static unsigned long pressed_ms;
   struct tm tm;
-  getLocalTime(&tm);
-  sprintf(buf, "%04d/%02d/%02d", 1900 + tm.tm_year, tm.tm_mon + 1, tm.tm_mday);
-  drawText(0, 16, buf);
-  sprintf(buf, "%02d:%02d", tm.tm_hour, tm.tm_min);
-  drawText(0, 24, buf);
-  gTop = 16;
+  if (digitalRead(BUTTON) == LOW) {
+    getLocalTime(&tm);
+    pressed_ms = millis();
+    sprintf(buf, "%04d/%02d/%02d", 1900 + tm.tm_year, tm.tm_mon + 1,
+            tm.tm_mday);
+    drawText(0, 16, buf);
+    sprintf(buf, "%02d:%02d", tm.tm_hour, tm.tm_min);
+    drawText(0, 24, buf);
+    gTop = 16;
 
-  gLedState = gLedState == eOff ? eBreathing : eOff;
-  if (gLedState == eOff) {
-    ledcAttachPin(LED_R, 0);
-    ledcAttachPin(LED_G, 0);
-    ledcAttachPin(LED_B, 0);
-  } else {
-    ledcDetachPin(LED_R);
-    ledcDetachPin(LED_G);
-    ledcDetachPin(LED_B);
-    digitalWrite(LED_R, 0);
-    digitalWrite(LED_G, 0);
-    digitalWrite(LED_B, 0);
+    gLedState = gLedState == eOff ? eBreathing : eOff;
+    if (gLedState == eOff) {
+      ledcAttachPin(LED_R, 0);
+      ledcAttachPin(LED_G, 0);
+      ledcAttachPin(LED_B, 0);
+    } else {
+      ledcDetachPin(LED_R);
+      ledcDetachPin(LED_G);
+      ledcDetachPin(LED_B);
+      digitalWrite(LED_R, 0);
+      digitalWrite(LED_G, 0);
+      digitalWrite(LED_B, 0);
+    }
+  } else {  // released
+    if (millis() - pressed_ms > 3000) {
+      gRestartRequest = true;
+    }
   }
 }
 
@@ -295,6 +308,7 @@ int h2d1(char c) {  // hex to decimal
 
 void setupWiFi() {
   int i = 0;
+  char buf[256];
   while (true) {
     WiFi.begin(SSIDS[i], PASSWORDS[i]);
     Serial.println(SSIDS[i]);
@@ -304,6 +318,10 @@ void setupWiFi() {
         configTzTime("JST-9", "jp.pool.ntp.org", "ntp.nict.jp");
         MDNS.begin(MDNSNAME);
         MDNS.addService("http", "tcp", 80);
+        WiFi.setAutoReconnect(true);
+        drawText(0, 16, "Connected!");
+        WiFi.SSID().toCharArray(buf, sizeof(buf));
+        drawText(0, 24, buf);
         return;
       }
       digitalWrite(LED, !digitalRead(LED));
@@ -358,6 +376,8 @@ void setupServer() {
     int plane = server.arg("plane").toInt() & 3;
     int offset = 0;  // VRAM 1要素(32bit)単位でいくつめか
     String data = server.arg("data");
+    Serial.print("server: ");
+    Serial.println(data);
     while (offset * 8 < data.length()) {
       uint32_t d = (h2d1(data.charAt(offset * 8 + 0)) << 28) +
                    (h2d1(data.charAt(offset * 8 + 1)) << 24) +
@@ -386,7 +406,7 @@ void setup() {
   setupWiFi();
 
   pinMode(BUTTON, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(BUTTON), pressed, FALLING);
+  attachInterrupt(digitalPinToInterrupt(BUTTON), pressed, FALLING || RISING);
 
   digitalWrite(pins[ENABLE], 0);  // enable
 
@@ -424,9 +444,10 @@ void loop() {
       Serial.println(WiFi.status());
       break;
   }
-  if (WiFi.status() == WL_CONNECTED) {
-    server.handleClient();
-  }
+  // // not sure if this is needed.  so deleted (2024/8/28)
+  // if (WiFi.status() == WL_CONNECTED) {
+  //  server.handleClient();
+  // }
 
   if (time(NULL) - gTimeRecv > 600) {
     gTimeRecv = time(NULL);
@@ -436,6 +457,12 @@ void loop() {
     Serial.println("connectoin lost?");
     gWidth = 6 * 18 + 10;
     gLedState = eWarning;
+  }
+
+  if (!WiFi.isConnected() || gRestartRequest) {
+    gRestartRequest = false;
+    setupWiFi();
+    setupServer();
   }
 
   Serial.println(time(NULL));
