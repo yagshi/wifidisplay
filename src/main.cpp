@@ -171,7 +171,7 @@ void IRAM_ATTR pressed() {
 
   static unsigned long pressed_ms;
   if (digitalRead(BUTTON) == LOW) {
-    gLedState = gLedState == eOff ? eBreathing : eOff;
+    gLedState = (gLedState == eOff) ? eBreathing : eOff;
     pressed_ms = millis();
     sprintf(buf, "%04d/%02d/%02d", 1900 + gTm.tm_year, gTm.tm_mon + 1,
             gTm.tm_mday);
@@ -206,9 +206,9 @@ void IRAM_ATTR interruptFuncSlow() {
 
   switch (gLedState) {
     case eOff:
-      digitalWrite(LED_R, 0);
-      digitalWrite(LED_G, 0);
-      digitalWrite(LED_B, 0);
+      analogWrite(LED_R, 0);  // 'digitalWrite' does not work well
+      analogWrite(LED_G, 0);
+      analogWrite(LED_B, 0);
       break;
     case eBreathing:
       analogWrite(LED_R, pwm);
@@ -393,7 +393,6 @@ void setup() {
     digitalWrite(i, LOW);
   }
   digitalWrite(pins[ENABLE], 1);  // disable
-  pinMode(LED, OUTPUT);
   for (int i = 0; i < 8; i++) {
     digitalWrite(LED, !digitalRead(LED));
     delay(50);
