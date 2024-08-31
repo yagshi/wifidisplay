@@ -45,6 +45,7 @@ int gScrollY = 0;
 // viewport top-left
 int gTop = 0;
 int gLeft = 0;
+struct tm gTm;
 bool gRestartRequest = false;
 
 enum LEDSTATE { eOff, eNormal, eBreathing, eWarning, eNotification };
@@ -166,33 +167,25 @@ void drawText(int x0, int y0, const char *s) {
 
 void IRAM_ATTR pressed() {
   char buf[30];
+  String str;
+
   static unsigned long pressed_ms;
-  struct tm tm;
   if (digitalRead(BUTTON) == LOW) {
-    getLocalTime(&tm);
+    gLedState = gLedState == eOff ? eBreathing : eOff;
     pressed_ms = millis();
-    sprintf(buf, "%04d/%02d/%02d", 1900 + tm.tm_year, tm.tm_mon + 1,
-            tm.tm_mday);
+    sprintf(buf, "%04d/%02d/%02d", 1900 + gTm.tm_year, gTm.tm_mon + 1,
+            gTm.tm_mday);
     drawText(0, 16, buf);
-    sprintf(buf, "%02d:%02d", tm.tm_hour, tm.tm_min);
+    sprintf(buf, "%02d:%02d", gTm.tm_hour, gTm.tm_min);
     drawText(0, 24, buf);
     gTop = 16;
-
-    gLedState = gLedState == eOff ? eBreathing : eOff;
-    if (gLedState == eOff) {
-      ledcAttachPin(LED_R, 0);
-      ledcAttachPin(LED_G, 0);
-      ledcAttachPin(LED_B, 0);
-    } else {
-      ledcDetachPin(LED_R);
-      ledcDetachPin(LED_G);
-      ledcDetachPin(LED_B);
-      digitalWrite(LED_R, 0);
-      digitalWrite(LED_G, 0);
-      digitalWrite(LED_B, 0);
-    }
   } else {  // released
     if (millis() - pressed_ms > 3000) {
+      sprintf(buf, "%l", millis());
+      drawText(0, 16, buf);
+      sprintf(buf, "%l", millis() - pressed_ms);
+      drawText(0, 24, buf);
+      gTop = 16;
       gRestartRequest = true;
     }
   }
@@ -206,7 +199,6 @@ void IRAM_ATTR interruptFuncSlow() {
     v = -v;
     pwm += v;
   }
-  ledcWrite(0, pwm);
   timerAlarmDisable(gTimer);
   gLeft = (gLeft + gScrollX + gWidth) % gWidth;
   gTop = (gTop + gScrollY + HEIGHT) % HEIGHT;
@@ -214,24 +206,19 @@ void IRAM_ATTR interruptFuncSlow() {
 
   switch (gLedState) {
     case eOff:
-      ledcDetachPin(LED_R);
-      ledcDetachPin(LED_G);
-      ledcDetachPin(LED_B);
       digitalWrite(LED_R, 0);
       digitalWrite(LED_G, 0);
       digitalWrite(LED_B, 0);
       break;
     case eBreathing:
-      ledcAttachPin(LED_R, 0);
-      ledcAttachPin(LED_G, 0);
-      ledcAttachPin(LED_B, 0);
+      analogWrite(LED_R, pwm);
+      analogWrite(LED_G, pwm);
+      analogWrite(LED_B, pwm);
       break;
     case eWarning:
-      ledcAttachPin(LED_R, 0);
-      ledcDetachPin(LED_G);
-      ledcDetachPin(LED_B);
-      digitalWrite(LED_G, 0);
-      digitalWrite(LED_B, 0);
+      analogWrite(LED_R, pwm);
+      analogWrite(LED_G, 0);
+      analogWrite(LED_B, 0);
       break;
   }
 }
@@ -310,7 +297,10 @@ void setupWiFi() {
   int i = 0;
   char buf[256];
   while (true) {
+    Serial.print("trying to connect: ");
+    Serial.println(SSIDS[i]);
     WiFi.begin(SSIDS[i], PASSWORDS[i]);
+
     Serial.println(SSIDS[i]);
     for (int j = 0; j < 32; j++) {
       if (WiFi.status() == WL_CONNECTED) {
@@ -319,9 +309,11 @@ void setupWiFi() {
         MDNS.begin(MDNSNAME);
         MDNS.addService("http", "tcp", 80);
         WiFi.setAutoReconnect(true);
-        drawText(0, 16, "Connected!");
-        WiFi.SSID().toCharArray(buf, sizeof(buf));
+        drawText(0, 16, "CONNECTED!");
+        for (int i = 0; i < sizeof(buf) / sizeof(char); buf[i++] = 0);
+        WiFi.SSID().toCharArray(buf, sizeof(buf) / sizeof(char));
         drawText(0, 24, buf);
+        gTop = 16;
         return;
       }
       digitalWrite(LED, !digitalRead(LED));
@@ -398,15 +390,18 @@ void setup() {
   Serial.begin(115200);
   for (int i : pins) {
     pinMode(i, OUTPUT);
-    digitalWrite(i, 0);
+    digitalWrite(i, LOW);
   }
   digitalWrite(pins[ENABLE], 1);  // disable
   pinMode(LED, OUTPUT);
-  digitalWrite(LED, 0);
+  for (int i = 0; i < 8; i++) {
+    digitalWrite(LED, !digitalRead(LED));
+    delay(50);
+  }
   setupWiFi();
 
   pinMode(BUTTON, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(BUTTON), pressed, FALLING || RISING);
+  attachInterrupt(digitalPinToInterrupt(BUTTON), pressed, FALLING | RISING);
 
   digitalWrite(pins[ENABLE], 0);  // enable
 
@@ -420,12 +415,7 @@ void setup() {
   timerAlarmWrite(gTimerSlow, 40000, true);
   timerAlarmEnable(gTimer);
   timerAlarmEnable(gTimerSlow);
-  ledcSetup(0, 10000, 8);  // 第2引数は周波数
-  // ledcSetup(1, 500, 8);    // 第2引数は周波数
-  // ledcAttachPin(BUZZ, 1);
-  ledcWrite(1, 128);
   setupServer();
-  ledcAttachPin(LED, 0);
   drawText(0, 0, (const char *)WiFi.localIP().toString().c_str());
 }
 
@@ -466,5 +456,6 @@ void loop() {
   }
 
   Serial.println(time(NULL));
-  delay(15);
+  getLocalTime(&gTm);
+  delay(1000);
 }
