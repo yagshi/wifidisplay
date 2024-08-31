@@ -12,12 +12,12 @@ extern const char *SSIDS[];
 extern const char *PASSWORDS[];
 
 extern unsigned char font55[][5];
-const char *MDNSNAME = "iotdisplay";//iotdisplay2は室内デスクトップ版
+const char *MDNSNAME = "iotdisplay";  // iotdisplay2は室内デスクトップ版
 
 const int pins[] = {
-    //    4, 16, 17, 5, 18, 19, 21,
-    25, 26, 27, 14, 12, 13,// 扉にある壁掛け板
-    //22, 32, 33, 25, 26, 27,// 室内にあるデスクトップ版
+    // 4, 16, 17, 5, 18, 19, 21,//
+    25, 26, 27, 14, 12, 13,  // 扉にある壁掛け板, 自宅のもこれ
+    // 22, 32, 33, 25, 26, 27,  // 室内にあるデスクトップ版
 };
 
 const int LED = 2;  // on board
