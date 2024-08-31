@@ -35,7 +35,7 @@ const int COL_B = 2;
 const int COL_A = 1;
 const int ROW = 0;
 
-const int WIDTH = 384;
+const int WIDTH = 512;
 const int HEIGHT = 64;
 
 int gWidth = WIDTH;  // スクロール範囲
