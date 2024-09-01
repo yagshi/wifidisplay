@@ -176,8 +176,16 @@ void IRAM_ATTR pressed() {
     sprintf(buf, "%04d/%02d/%02d", 1900 + gTm.tm_year, gTm.tm_mon + 1,
             gTm.tm_mday);
     drawText(0, 16, buf);
+    drawText(100, 16, buf);
+    drawText(200, 16, buf);
+    drawText(300, 16, buf);
+    drawText(400, 16, buf);
     sprintf(buf, "%02d:%02d", gTm.tm_hour, gTm.tm_min);
     drawText(0, 24, buf);
+    drawText(100, 24, buf);
+    drawText(200, 24, buf);
+    drawText(300, 24, buf);
+    drawText(400, 24, buf);
     gTop = 16;
   } else {  // released
     if (millis() - pressed_ms > 3000) {
@@ -309,7 +317,7 @@ void setupWiFi() {
         MDNS.begin(MDNSNAME);
         MDNS.addService("http", "tcp", 80);
         WiFi.setAutoReconnect(true);
-        drawText(0, 16, "CONNECTED!");
+        drawText(0, 16, "Connected!");
         for (int i = 0; i < sizeof(buf) / sizeof(char); buf[i++] = 0);
         WiFi.SSID().toCharArray(buf, sizeof(buf) / sizeof(char));
         drawText(0, 24, buf);
@@ -442,7 +450,7 @@ void loop() {
     gTimeRecv = time(NULL);
     cls();
     drawText(0, 2, "NO NEW INFORMATION");
-    drawText(0, 10, "(CONNECTION LOST?)");
+    drawText(0, 10, "(connection lost?)");
     Serial.println("connectoin lost?");
     gWidth = 6 * 18 + 10;
     gLedState = eWarning;
