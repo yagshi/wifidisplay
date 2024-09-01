@@ -9,7 +9,7 @@ require 'net/http'
 require 'google/apis/calendar_v3'
 include PyCall::Import
 
-WIDTH = 384
+WIDTH = 512
 KEYFILE = 'iotdisplay-key.json'.freeze
 CALENDAR_ID = 'kqjf08tfsnanv8p5rl2pa4p9p0@group.calendar.google.com'.freeze
 
