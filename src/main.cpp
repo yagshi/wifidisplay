@@ -12,16 +12,15 @@ extern const char *SSIDS[];
 extern const char *PASSWORDS[];
 
 extern unsigned char font55[][5];
-const char *MDNSNAME = "iotdisplay";  // iotdisplayはドア取り付け版
-// const char *MDNSNAME = "iotdisplay2";  // iotdisplay2は室内デスクトップ版
+// const char *MDNSNAME = "iotdisplay";  // iotdisplayはドア取り付け版
+const char *MDNSNAME = "iotdisplay2";  // iotdisplay2は室内デスクトップ版
 
 const int pins[] = {
     // 4, 16, 17, 5, 18, 19, 21,//
-    25, 26, 27, 14, 12, 13,  // 扉にある壁掛け板, 自宅のもこれ
-    // 22, 32, 33, 25, 26, 27,  // 室内にあるデスクトップ版
+    // 25, 26, 27, 14, 12, 13,  // 扉にある壁掛け板, 自宅のもこれ
+    22, 32, 33, 25, 26, 27,  // 室内にあるデスクトップ版
 };
 
-const int LED = 2;  // on board
 const int LED_R = 17;
 const int LED_G = 16;
 const int LED_B = 4;
@@ -324,7 +323,7 @@ void setupWiFi() {
         gTop = 16;
         return;
       }
-      digitalWrite(LED, !digitalRead(LED));
+      digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
       delay(200);
     }
     i++;
@@ -400,14 +399,19 @@ void setup() {
     pinMode(i, OUTPUT);
     digitalWrite(i, LOW);
   }
+  pinMode(BUTTON, INPUT_PULLUP);
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LED_R, OUTPUT);
+  pinMode(LED_G, OUTPUT);
+  pinMode(LED_B, OUTPUT);
+
   digitalWrite(pins[ENABLE], 1);  // disable
   for (int i = 0; i < 8; i++) {
-    digitalWrite(LED, !digitalRead(LED));
+    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
     delay(50);
   }
   setupWiFi();
 
-  pinMode(BUTTON, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(BUTTON), pressed, FALLING | RISING);
 
   digitalWrite(pins[ENABLE], 0);  // enable
